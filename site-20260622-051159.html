@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办事项管理器</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 30px 25px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        .input-section {
+            padding: 25px;
+            background-color: #f9fbfd;
+            border-bottom: 1px solid #eaeef3;
+        }
+        #task-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1rem;
+            border: 2px solid #dce3eb;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        #task-input:focus {
+            border-color: #2575fc;
+        }
+        #add-btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 15px;
+            background-color: #2575fc;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #add-btn:hover {
+            background-color: #1c6ae4;
+        }
+        .tasks-section {
+            padding: 20px;
+        }
+        .task-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 10px 5px;
+            font-size: 0.95rem;
+            color: #666;
+            border-bottom: 1px solid #eee;
+        }
+        #task-list {
+            list-style-type: none;
+        }
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        .task-checkbox {
+            margin-right: 15px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .task-text {
+            flex-grow: 1;
+            font-size: 1.1rem;
+            word-break: break-word;
+        }
+        .task-text.completed {
+            text-decoration: line-through;
+            color: #999;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ff6b6b;
+            font-size: 1.3rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            padding: 0 5px;
+        }
+        .delete-btn:hover {
+            opacity: 1;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #aaa;
+        }
+        .empty-state p {
+            font-size: 1.2rem;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 20px 10px;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .task-item {
+                padding: 14px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>待办事项管理器</h1>
+            <p>记录并管理你的日常任务</p>
+        </header>
+
+        <div class="input-section">
+            <input type="text" id="task-input" placeholder="输入新任务..." maxlength="100">
+            <button id="add-btn">添加任务</button>
+        </div>
+
+        <div class="tasks-section">
+            <div class="task-stats">
+                <span id="total-count">总计: 0</span>
+                <span id="completed-count">已完成: 0</span>
+            </div>
+            <ul id="task-list"></ul>
+            <div id="empty-message" class="empty-state">
+                <p>暂无任务，添加一个新任务开始吧！</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const taskInput = document.getElementById('task-input');
+            const addBtn = document.getElementById('add-btn');
+            const taskList = document.getElementById('task-list');
+            const emptyMessage = document.getElementById('empty-message');
+            const totalCountSpan = document.getElementById('total-count');
+            const completedCountSpan = document.getElementById('completed-count');
+
+            let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+            function updateStats() {
+                const total = tasks.length;
+                const completed = tasks.filter(task => task.completed).length;
+                totalCountSpan.textContent = `总计: ${total}`;
+                completedCountSpan.textContent = `已完成: ${completed}`;
+                emptyMessage.style.display = total ? 'none' : 'block';
+            }
+
+            function saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                updateStats();
+            }
+
+            function renderTasks() {
+                taskList.innerHTML = '';
+                tasks.forEach((task, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'task-item';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'task-checkbox';
+                    checkbox.checked = task.completed;
+
+                    checkbox.addEventListener('change', () => {
+                        tasks[index].completed = checkbox.checked;
+                        taskText.classList.toggle('completed', checkbox.checked);
+                        saveTasks();
+                    });
+
+                    const taskText = document.createElement('span');
+                    taskText.className = 'task-text';
+                    taskText.textContent = task.text;
+                    if (task.completed) {
+                        taskText.classList.add('completed');
+                    }
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.innerHTML = '&times;';
+                    deleteBtn.title = '删除任务';
+
+                    deleteBtn.addEventListener('click', () => {
+                        tasks.splice(index, 1);
+                        saveTasks();
+                        renderTasks();
+                    });
+
+                    li.appendChild(checkbox);
+                    li.appendChild(taskText);
+                    li.appendChild(deleteBtn);
+                    taskList.appendChild(li);
+                });
+                updateStats();
+            }
+
+            function addTask() {
+                const text = taskInput.value.trim();
+                if (text) {
+                    tasks.push({ text, completed: false });
+                    saveTasks();
+                    renderTasks();
+                    taskInput.value = '';
+                    taskInput.focus();
+                }
+            }
+
+            addBtn.addEventListener('click', addTask);
+
+            taskInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+
+            renderTasks();
+        });
+    </script>
+</body>
+</html>
