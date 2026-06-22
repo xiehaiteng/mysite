@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能照片墙</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .upload-area {
+            border: 2px dashed #3498db;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background-color: #ecf0f1;
+            margin-bottom: 30px;
+            transition: background-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            background-color: #d6eaf8;
+        }
+
+        .upload-area p {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #7f8c8d;
+        }
+
+        .file-input {
+            display: none; /* 隐藏原始input */
+        }
+
+        .btn {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .photo-wall-container {
+            display: none; /* 初始隐藏 */
+            width: 100%;
+        }
+
+        .photo-wall-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .photo-counter {
+            font-size: 18px;
+            color: #2c3e50;
+        }
+
+        .clear-btn {
+            background-color: #e74c3c;
+        }
+
+        .clear-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .photo-wall {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .photo-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            aspect-ratio: 1 / 1; /* 默认正方形 */
+            background-color: #fff;
+        }
+
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 保持比例填充 */
+            display: block;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(231, 76, 60, 0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .photo-item:hover .remove-btn {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .photo-wall {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>智能照片墙</h1>
+
+    <div class="upload-area" id="dropArea">
+        <p>点击选择或拖拽图片到此处上传</p>
+        <button class="btn" id="uploadBtn">选择图片</button>
+        <input type="file" id="fileInput" class="file-input" accept="image/*" multiple>
+    </div>
+
+    <div class="photo-wall-container" id="photoWallContainer">
+        <div class="photo-wall-header">
+            <div class="photo-counter">共 <span id="countNum">0</span> 张照片</div>
+            <button class="btn clear-btn" id="clearBtn">清空全部</button>
+        </div>
+        <div class="photo-wall" id="photoWall"></div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const photoWallContainer = document.getElementById('photoWallContainer');
+        const photoWall = document.getElementById('photoWall');
+        const countNum = document.getElementById('countNum');
+        const clearBtn = document.getElementById('clearBtn');
+
+        let uploadedImages = []; // 存储图片对象URL
+
+        // 点击上传按钮触发文件输入
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 监听文件输入变化
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // 阻止浏览器默认的拖拽行为
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // 添加拖拽视觉反馈
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            dropArea.style.backgroundColor = '#d6eaf8';
+        }
+
+        function unhighlight() {
+            dropArea.style.backgroundColor = '#ecf0f1';
+        }
+
+        // 处理拖放的文件
+        dropArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            [...files].forEach(file => {
+                if (!file.type.match('image.*')) return; // 只处理图片
+
+                const reader = new FileReader();
+
+                reader.onload = (function(theFile) {
+                    return function(e) {
+                        const imageObjectUrl = e.target.result;
+
+                        // 创建图片元素并添加到照片墙
+                        addImageToWall(imageObjectUrl, theFile.name);
+
+                        // 存储对象URL以便后续清理
+                        uploadedImages.push(imageObjectUrl);
+                    };
+                })(file);
+
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function addImageToWall(src, fileName) {
+            const photoItem = document.createElement('div');
+            photoItem.className = 'photo-item';
+
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = fileName; // 使用文件名作为alt属性
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.title = `删除 ${fileName}`;
+            removeBtn.addEventListener('click', function(e) {
+                e.stopPropagation(); // 防止事件冒泡到photoItem
+                photoWall.removeChild(photoItem);
+                updateCounter();
+            });
+
+            photoItem.appendChild(img);
+            photoItem.appendChild(removeBtn);
+            photoWall.appendChild(photoItem);
+
+            // 显示照片墙容器
+            photoWallContainer.style.display = 'block';
+
+            updateCounter();
+        }
+
+        function updateCounter() {
+            const count = photoWall.children.length;
+            countNum.textContent = count;
+        }
+
+        // 清空全部按钮
+        clearBtn.addEventListener('click', () => {
+            // 移除所有照片项
+            while (photoWall.firstChild) {
+                photoWall.removeChild(photoWall.firstChild);
+            }
+            // 更新计数器
+            updateCounter();
+            // 隐藏照片墙容器
+            photoWallContainer.style.display = 'none';
+            // 清空已上传的图片对象URL数组
+            uploadedImages.forEach(url => URL.revokeObjectURL(url));
+            uploadedImages = [];
+            // 清空文件输入框
+            fileInput.value = '';
+        });
+
+        // 在页面卸载前清理对象URL
+        window.addEventListener('beforeunload', () => {
+            uploadedImages.forEach(url => URL.revokeObjectURL(url));
+        });
+    });
+</script>
+
+</body>
+</html>
